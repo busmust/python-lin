@@ -23,7 +23,7 @@ This package provides a programming interface similar to [python-can](https://gi
 
 ### 1. Install BMAPI Runtime Library
 
-Download the latest [BMAPI SDK](https://github.com/busmaster/bmapi-sdk/releases) and copy the runtime library to a system path:
+Download the latest [BMAPI SDK](https://github.com/busmust/bmapi-sdk/releases) and copy the runtime library to a system path:
 
 | Platform | SDK File | Install Command |
 |----------|----------|----------------|
@@ -66,7 +66,12 @@ bus.shutdown()
 
 - Python 3.7+
 - BUSMUST hardware device with LIN support
-- BMAPI runtime library (included in [BMAPI SDK](https://github.com/busmaster/bmapi-sdk/releases))
+- BMAPI runtime library (included in [BMAPI SDK](https://github.com/busmust/bmapi-sdk/releases))
+
+This revision synchronizes the low-level `ctypes` declarations with the full
+BMAPI 1.14.2.45 interface. Use the standalone package attached to this release,
+which includes the matching BMAPI 1.15.0.46 runtime, or install BMAPI 1.14.2.45
+or later separately.
 
 ## Examples
 
@@ -110,7 +115,7 @@ At runtime, the DLL is found via the `_MEIPASS` fallback path inside the bundle.
 
 ## Related Projects
 
-- [BMAPI SDK](https://github.com/busmaster/bmapi-sdk) — Complete SDK for BUSMUST devices
+- [BMAPI SDK](https://github.com/busmust/bmapi-sdk) — Complete SDK for BUSMUST devices
 - [python-can](https://github.com/busmust/python-can) — BUSMUST interface for CAN/CAN FD
 
 ## Support

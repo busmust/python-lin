@@ -705,6 +705,22 @@ class BM_BitrateTypeDef(ctypes.Structure):
         ('dbtr1', ctypes.c_ubyte),      #/**< Data BTR1 register value, note this value is calculated using clockfreq, which might not be 16MHz */
     ]
 
+BM_AUTOSET_PASSIVE_LISTEN = 0
+BM_AUTOSET_ACTIVE_DETECT = 1
+
+class BM_AutosetConfigTypeDef(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('version', ctypes.c_uint8),
+        ('mode', ctypes.c_uint8),
+        ('minLockMessages', ctypes.c_uint8),
+        ('reserved0', ctypes.c_uint8),
+        ('passiveObservationMs', ctypes.c_uint16),
+        ('activeWriteTimeoutMs', ctypes.c_uint16),
+        ('probeMessage', BM_CanMessageTypeDef),
+        ('reserved', ctypes.c_uint32 * 4),
+    ]
+
 #/**
 # * @typedef BM_RxFilterTypeDef
 # * @brief   CAN channel RX filter item structure, used by BM_SetRxFilter().
@@ -1032,9 +1048,10 @@ BM_NotificationHandle = ctypes.c_void_p
 # * @param[in] tres         The terminal resistor option value which has passed or failed.
 # * @param[in] nrxmessages  Number of received messages while listening to the bus using bitrate and tres.
 # * @param[in] userarg      Arbitrary user argument passed by BM_Autoset().
+# * @return  Return 0 to continue AUTOSET sequence, return non-zero value to cancel AUTOSET sequence.
 # */
-#typedef void (*BM_AutosetCallbackHandle)(const BM_BitrateTypeDef* bitrate, BM_TerminalResistorTypeDef tres, int nrxmessages, uintptr_t userarg);
-BM_AutosetCallbackHandle = ctypes.CFUNCTYPE(ctypes.POINTER(BM_BitrateTypeDef), BM_TerminalResistorTypeDef, ctypes.c_int, ctypes.c_void_p)
+#typedef uint32_t (*BM_AutosetCallbackHandle)(const BM_BitrateTypeDef* bitrate, BM_TerminalResistorTypeDef tres, int nrxmessages, uintptr_t userarg);
+BM_AutosetCallbackHandle = ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.POINTER(BM_BitrateTypeDef), BM_TerminalResistorTypeDef, ctypes.c_int, ctypes.c_void_p)
 
 def check_status(result, function, arguments):
     if result > 0:
@@ -1133,6 +1150,18 @@ BM_Autoset.argtypes = [
 ]
 BM_Autoset.restype = BM_StatusTypeDef
 BM_Autoset.errcheck = check_status
+
+BM_AutosetEx = bmapi_dll.BM_AutosetEx
+BM_AutosetEx.argtypes = [
+    ctypes.POINTER(BM_ChannelInfoTypeDef),
+    ctypes.POINTER(BM_BitrateTypeDef),
+    ctypes.POINTER(BM_TerminalResistorTypeDef),
+    ctypes.POINTER(BM_AutosetConfigTypeDef),
+    BM_AutosetCallbackHandle,
+    ctypes.c_void_p
+]
+BM_AutosetEx.restype = BM_StatusTypeDef
+BM_AutosetEx.errcheck = check_status
 
 #/**
 # * @brief Open the specified CAN device port.
@@ -1822,4 +1851,498 @@ BM_GetHostPtpTime = bmapi_dll.BM_GetHostPtpTime
 BM_GetHostPtpTime.argtypes = []
 BM_GetHostPtpTime.restype = ctypes.c_uint64
 # BMAPI BM_StatusTypeDef BM_GetDataPtpTimestamp(BM_ChannelHandle channel, BM_DataTypeDef* data, uint64_t* timestamp);
+# ==== Constants, types and APIs synchronized with BMAPI 1.14.2.45 ====
+
+# /**
+#  * @enum  BM_BufferTypeDef / BM_BufferId / BM_SleepStatusTypeDef / BM_PtpModeTypeDef
+#  * @brief Synchronized with BMAPI 1.14.2.45.
+#  */
+BM_WRITE_BUFFER = 0                #/**< Write buffer */
+BM_READ_BUFFER = 0x8000            #/**< Read buffer */
+BM_DEFAULT_BUFFER = 0x0000         #/**< Default buffer: txq for write, rxq for read */
+BM_LOGGINGFILE_BUFFER = 0x0001     #/**< Buffer for logging file operations */
+BM_REPLAYFILE_BUFFER = 0x0002      #/**< Buffer for replay file operations */
+BM_LOGGINGQ_BUFFER = 0x0111        #/**< Buffer for logging queue */
+BM_REPLAYQ_BUFFER = 0x0222         #/**< Buffer for replay queue */
+BM_RXQ_BUFFER = 0x1111             #/**< RX queue buffer (compatible with BM_ClearBuffer) */
+BM_TXQ_BUFFER = 0x2222             #/**< TX queue buffer (compatible with BM_ClearBuffer) */
+BM_NO_BUFFER = 0xFFFF              #/**< No buffer: direct physical channel access for low latency */
+BM_WAKEUP = 0                      #/**< Channel is awake */
+BM_SLEEP = 1                       #/**< Channel is sleeping */
+BM_PTP_DISABLED = 0                #/**< Disable PTP feature, work asynchronously using hardware local timestamp */
+BM_PTP_INPUT_USB_SOF = 1           #/**< Use host computer's USB SOF packet to sync with host computer */
+BM_PTP_INPUT_PPS = 2               #/**< PTP slave: Use dedicated PPS input pin (if supported by hardware) as sync pulse input */
+BM_PTP_OUTPUT_PPS = 4              #/**< PTP master: Use dedicated PPS input pin (if supported by hardware) as sync pulse output */
+
+# Remote control-session ABI constants and states (bm_usb_def.h).
+BM_REMOTE_SESSION_ABI_VERSION = 1
+BM_REMOTE_SESSION_DEFAULT_TIMEOUT_MS = 10000
+BM_REMOTE_SESSION_DEFAULT_HEARTBEAT_MS = 2000
+BM_REMOTE_SESSION_MIN_TIMEOUT_MS = 3000
+BM_REMOTE_SESSION_MAX_TIMEOUT_MS = 60000
+BM_REMOTE_OWNER_NONE = 0
+BM_REMOTE_OWNER_LOCAL = 1
+BM_REMOTE_OWNER_REMOTE = 2
+BM_REMOTE_SESSION_UNKNOWN = 0
+BM_REMOTE_SESSION_AVAILABLE = 1
+BM_REMOTE_SESSION_CLAIMED = 2
+BM_REMOTE_SESSION_EXPIRED = 3
+BM_REMOTE_SESSION_FAULTED = 4
+BM_REMOTE_SESSION_CAP_NONE = 0
+BM_REMOTE_SESSION_CAP_CLAIM = 1 << 0
+BM_REMOTE_SESSION_CAP_HEARTBEAT = 1 << 1
+BM_REMOTE_SESSION_CAP_CHANNEL_RELEASE = 1 << 2
+BM_REMOTE_SESSION_CAP_CONTROL_STATUS = 1 << 3
+BM_REMOTE_SESSION_CAP_TX_SEQ_TRANSLATION = 1 << 4
+BM_REMOTE_SESSION_RESULT_OK = 0
+BM_REMOTE_SESSION_RESULT_UNSUPPORTED = 1
+BM_REMOTE_SESSION_RESULT_BUSY = 2
+BM_REMOTE_SESSION_RESULT_STALE = 3
+BM_REMOTE_SESSION_RESULT_DENIED = 4
+BM_REMOTE_SESSION_RESULT_INVALID = 5
+BM_REMOTE_SESSION_RESULT_INTERNAL = 6
+
+# /**
+#  * @typedef BM_LinProtocolTimingTypeDef
+#  * @brief   LIN protocol timing configuration, used in BM_LinProtocolConfigTypeDef.
+#  */
+class BM_LinProtocolTimingTypeDef(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('wakeLength', ctypes.c_uint8),        #/**< 0:250us, 1:500us, 2:750us, ..., 7:2000us */
+        ('breakLength', ctypes.c_uint8),       #/**< 0:13bit, 1:15bit, 2:17bit, ..., 7:27bit */
+        ('busInactiveTime', ctypes.c_uint8),   #/**< 0:4s, 1:6s, 2:8s, 3:10s */
+        ('wakeupRepeatTime', ctypes.c_uint8),  #/**< 0:180ms, 1:200ms, 2:220ms, 3:240ms */
+    ]
+
+# /**
+#  * @typedef BM_LinProtocolConfigTypeDef
+#  * @brief   LIN Protocol configuration, used by BM_SetLinProtocol() and BM_GetLinProtocol().
+#  */
+class BM_LinProtocolConfigTypeDef(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('version', ctypes.c_uint8),                    #/**< 0x13=LIN1.3, 0x20=LIN2.0, 0x21=LIN2.1, 0x22=LIN2.2 */
+        ('checksum', ctypes.c_uint8),                   #/**< 0x00=manual, 0x01=normal, 0x02=enhanced */
+        ('reserved', ctypes.c_uint8 * 2),               #/**< Reserved */
+        ('timing', BM_LinProtocolTimingTypeDef),        #/**< LIN timing configuration */
+        ('reserved2', ctypes.c_uint8 * 8),              #/**< Reserved */
+    ]
+
+# /**
+#  * @typedef BM_MessageRouteTypeDef
+#  * @brief   Message route item structure, used by BM_SetMsgRoutes() and BM_GetMsgRoutes().
+#  */
+class BM_MessageRouteTypeDef(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('type', ctypes.c_uint8),               #/**< 0 = invalid, 1 = unicast, 2 = broadcast */
+        ('source', ctypes.c_uint8),             #/**< Source channel index (0-15) */
+        ('target', ctypes.c_uint16),            #/**< Target channel: index if type==1, bitmask of target channels if type==2 */
+        ('reserved', ctypes.c_uint16),          #/**< Reserved for future */
+        ('flagsmask', ctypes.c_uint8),          #/**< Source message flag mask, message will be routed if msg.flags & flagsmask == flagsvalue */
+        ('flagsvalue', ctypes.c_uint8),         #/**< Source message flag value, see BM_MessageFlagsTypeDef for details */
+        ('idmask', ctypes.c_uint32),            #/**< Source message ID mask, message will be routed if msg.id & idmask == idvalue */
+        ('idvalue', ctypes.c_uint32),           #/**< Source message ID value, see BM_MessageIdTypeDef for details */
+    ]
+
+# /**
+#  * @typedef BM_RemoteSessionConfigTypeDef
+#  * @brief   Configuration used when claiming a remote control session via BM_ClaimRemoteSession().
+#  */
+class BM_RemoteSessionConfigTypeDef(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('size', ctypes.c_uint32),                      #/**< Set to ctypes.sizeof(BM_RemoteSessionConfigTypeDef). */
+        ('version', ctypes.c_uint32),                   #/**< Set to BM_REMOTE_SESSION_ABI_VERSION. */
+        ('timeout_ms', ctypes.c_uint32),                #/**< Control-lock lease, 0 for the 10000 ms default. */
+        ('heartbeat_interval_ms', ctypes.c_uint32),     #/**< 0 for the 2000 ms default; at most half the lease. */
+        ('flags', ctypes.c_uint32),                     #/**< Must be zero in ABI version 1. */
+        ('client_name', ctypes.c_char * 32),            #/**< Optional UTF-8 display name; NUL terminated. */
+        ('reserved', ctypes.c_uint8 * 44),
+    ]
+
+# /**
+#  * @typedef BM_RemoteSessionInfoTypeDef
+#  * @brief   Status and ownership information for a remote control session.
+#  */
+class BM_RemoteSessionInfoTypeDef(ctypes.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ('size', ctypes.c_uint32),
+        ('version', ctypes.c_uint32),
+        ('capabilities', ctypes.c_uint32),      #/**< Bitmask of BM_REMOTE_SESSION_CAP_* values. */
+        ('state', ctypes.c_uint32),              #/**< See BM_REMOTE_SESSION_* state values. */
+        ('result', ctypes.c_uint32),             #/**< See BM_REMOTE_SESSION_RESULT_* values. */
+        ('timeout_ms', ctypes.c_uint32),
+        ('expires_in_ms', ctypes.c_uint32),
+        ('config_generation', ctypes.c_uint32),
+        ('session_id', ctypes.c_uint8 * 16),
+        ('owner_ipv4', ctypes.c_uint8 * 4),
+        ('owner_kind', ctypes.c_uint8),          #/**< See BM_REMOTE_OWNER_* values. */
+        ('reserved0', ctypes.c_uint8 * 3),
+        ('owner_name', ctypes.c_char * 32),      #/**< UTF-8 display name; NUL terminated. */
+        ('reserved', ctypes.c_uint8 * 32),
+    ]
+
+BM_RemoteSessionHandle = ctypes.c_void_p
+BM_DeviceHandle = ctypes.c_void_p
+
+
+# /**
+#  * @brief      Set PTP timestamp synchronization mode.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  mode    Expected PTP timestamp synchronization mode, see BM_PtpModeTypeDef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetPtpMode(BM_ChannelHandle handle, BM_PtpModeTypeDef mode);
+BM_SetPtpMode = bmapi_dll.BM_SetPtpMode
+BM_SetPtpMode.argtypes = [BM_ChannelHandle, ctypes.c_int]
+BM_SetPtpMode.restype = BM_StatusTypeDef
+BM_SetPtpMode.errcheck = check_status
+
+# /**
+#  * @brief     A platform/OS independent implementation to synchronize PTP timestamp with the host machine for single/multiple channels.
+#  * @param[in] handles     An array of channel handles.
+#  * @param[in] nhandles    Number of valid channel handles.
+#  * @return    Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SyncPtpTimes(BM_ChannelHandle handles[], int nhandles);
+BM_SyncPtpTimes = bmapi_dll.BM_SyncPtpTimes
+BM_SyncPtpTimes.argtypes = [ctypes.POINTER(BM_ChannelHandle), ctypes.c_int]
+BM_SyncPtpTimes.restype = BM_StatusTypeDef
+BM_SyncPtpTimes.errcheck = check_status
+
+# /**
+#  * @brief      Convert from 32-bit hardware timestamp to 64-bit UTC timestamp.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  timestamp32  Hardware 32-bit timestamp.
+#  * @param[out] timestamp64  Converted 64-bit timestamp in micro-second, since 1970-1-1.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_MapTimestamp(BM_ChannelHandle handle, uint32_t timestamp32, uint64_t* timestamp64);
+BM_MapTimestamp = bmapi_dll.BM_MapTimestamp
+BM_MapTimestamp.argtypes = [BM_ChannelHandle, ctypes.c_uint32, ctypes.POINTER(ctypes.c_uint64)]
+BM_MapTimestamp.restype = BM_StatusTypeDef
+BM_MapTimestamp.errcheck = check_status
+
+# /**
+#  * @brief      Read LIN message out of the given channel.
+#  * @param[in]  handle     Handle to the channel to read from.
+#  * @param[out] msg        A caller-allocated buffer to hold the LIN message output, see BM_LinMessageTypeDef for details.
+#  * @param[out] channel    The source channel ID from which the message is received, starting from zero, could be NULL if not required.
+#  * @param[out] timestamp  The device local high precision timestamp in microseconds, when the message is physically received on the LIN bus, could be NULL if not required.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_ReadLinMessage(BM_ChannelHandle handle, BM_LinMessageTypeDef* msg, uint32_t* channel, uint32_t* timestamp);
+BM_ReadLinMessage = bmapi_dll.BM_ReadLinMessage
+BM_ReadLinMessage.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_LinMessageTypeDef), ctypes.POINTER(ctypes.c_uint32), ctypes.POINTER(ctypes.c_uint32)]
+BM_ReadLinMessage.restype = BM_StatusTypeDef
+BM_ReadLinMessage.errcheck = check_status
+
+# /**
+#  * @brief      Get current CAN status of the given channel.
+#  * @param[in]  handle      Handle to the channel to operate on.
+#  * @param[out] statusinfo  Detailed information of current CAN status, see BM_CanStatusInfoTypedef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetCanStatus(BM_ChannelHandle handle, BM_CanStatusInfoTypeDef* statusinfo);
+BM_GetCanStatus = bmapi_dll.BM_GetCanStatus
+BM_GetCanStatus.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_CanStatusInfoTypedef)]
+BM_GetCanStatus.restype = BM_StatusTypeDef
+BM_GetCanStatus.errcheck = check_status
+
+# /**
+#  * @brief      Get current LIN status of the given channel.
+#  * @param[in]  handle      Handle to the channel to operate on.
+#  * @param[out] statusinfo  Detailed information of current LIN status, see BM_LinStatusInfoTypedef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetLinStatus(BM_ChannelHandle handle, BM_LinStatusInfoTypeDef* statusinfo);
+BM_GetLinStatus = bmapi_dll.BM_GetLinStatus
+BM_GetLinStatus.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_LinStatusInfoTypedef)]
+BM_GetLinStatus.restype = BM_StatusTypeDef
+BM_GetLinStatus.errcheck = check_status
+
+# /**
+#  * @brief      Get the device handle which an opened channel belongs to.
+#  * @param[in]  channel  Handle to the opened channel.
+#  * @param[out] device   Handle to the device that owns the channel.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetDevice(BM_ChannelHandle channel, BM_DeviceHandle* device);
+BM_GetDevice = bmapi_dll.BM_GetDevice
+BM_GetDevice.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_DeviceHandle)]
+BM_GetDevice.restype = BM_StatusTypeDef
+BM_GetDevice.errcheck = check_status
+
+# /**
+#  * @brief      Set device internal buffer target when calling BM_Read and BM_Write to transfer messages.
+#  * @param[in]  device  Handle to the device to operate on, retrieved by BM_GetDevice().
+#  * @param[in]  type    Buffer direction, see BM_BufferTypeDef for details.
+#  * @param[in]  id      Buffer identifier, see BM_BufferId for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetBuffer(BM_DeviceHandle device, BM_BufferTypeDef type, BM_BufferId id);
+BM_SetBuffer = bmapi_dll.BM_SetBuffer
+BM_SetBuffer.argtypes = [BM_DeviceHandle, ctypes.c_int, ctypes.c_int]
+BM_SetBuffer.restype = BM_StatusTypeDef
+BM_SetBuffer.errcheck = check_status
+
+# /**
+#  * @brief      Set channel mode option of the given channel.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  mode    Channel mode, see BM_CanModeTypeDef, BM_LinModeTypeDef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetMode(BM_ChannelHandle handle, uint32_t mode);
+BM_SetMode = bmapi_dll.BM_SetMode
+BM_SetMode.argtypes = [BM_ChannelHandle, ctypes.c_uint32]
+BM_SetMode.restype = BM_StatusTypeDef
+BM_SetMode.errcheck = check_status
+
+# /**
+#  * @brief      Set LIN mode option of the given channel.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  mode    Expected LIN mode, see BM_LinModeTypeDef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetLinMode(BM_ChannelHandle handle, BM_LinModeTypeDef mode);
+BM_SetLinMode = bmapi_dll.BM_SetLinMode
+BM_SetLinMode.argtypes = [BM_ChannelHandle, ctypes.c_int]
+BM_SetLinMode.restype = BM_StatusTypeDef
+BM_SetLinMode.errcheck = check_status
+
+# /**
+#  * @brief      Set sleep option of the given channel.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  status  Expected sleep status, see BM_SleepStatusTypeDef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetSleepStatus(BM_ChannelHandle handle, BM_SleepStatusTypeDef status);
+BM_SetSleepStatus = bmapi_dll.BM_SetSleepStatus
+BM_SetSleepStatus.argtypes = [BM_ChannelHandle, ctypes.c_int]
+BM_SetSleepStatus.restype = BM_StatusTypeDef
+BM_SetSleepStatus.errcheck = check_status
+
+# /**
+#  * @brief      Get sleep option of the given channel.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  status  Current sleep status, see BM_SleepStatusTypeDef for details.
+#  *                   Note: bmapi.h declares this parameter by value, the binding mirrors that ABI.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetSleepStatus(BM_ChannelHandle handle, BM_SleepStatusTypeDef status);
+BM_GetSleepStatus = bmapi_dll.BM_GetSleepStatus
+BM_GetSleepStatus.argtypes = [BM_ChannelHandle, ctypes.c_int]
+BM_GetSleepStatus.restype = BM_StatusTypeDef
+BM_GetSleepStatus.errcheck = check_status
+
+# /**
+#  * @brief      Get LIN voltage option of the given channel.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[out] voltage Current LIN voltage, see BM_LinVoltageTypeDef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetLinVoltage(BM_ChannelHandle handle, BM_LinVoltageTypeDef* voltage);
+BM_LinVoltageTypeDef = ctypes.c_int                       #/**< LIN voltage option, see BM_LIN_VOLTAGE_12V_* values. */
+BM_GetLinVoltage = bmapi_dll.BM_GetLinVoltage
+BM_GetLinVoltage.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_LinVoltageTypeDef)]
+BM_GetLinVoltage.restype = BM_StatusTypeDef
+BM_GetLinVoltage.errcheck = check_status
+
+# /**
+#  * @brief      Set LIN protocol option of the given channel.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  protocol Expected LIN protocol, see BM_LinProtocolConfigTypeDef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetLinProtocol(BM_ChannelHandle handle, const BM_LinProtocolConfigTypeDef* protocol);
+BM_SetLinProtocol = bmapi_dll.BM_SetLinProtocol
+BM_SetLinProtocol.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_LinProtocolConfigTypeDef)]
+BM_SetLinProtocol.restype = BM_StatusTypeDef
+BM_SetLinProtocol.errcheck = check_status
+
+# /**
+#  * @brief      Get LIN protocol option of the given channel.
+#  * @param[in]  handle   Handle to the channel to operate on.
+#  * @param[out] protocol Current LIN protocol, see BM_LinProtocolConfigTypeDef for details.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetLinProtocol(BM_ChannelHandle handle, BM_LinProtocolConfigTypeDef* protocol);
+BM_GetLinProtocol = bmapi_dll.BM_GetLinProtocol
+BM_GetLinProtocol.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_LinProtocolConfigTypeDef)]
+BM_GetLinProtocol.restype = BM_StatusTypeDef
+BM_GetLinProtocol.errcheck = check_status
+
+# /**
+#  * @brief      Set bitrate option of the given LIN channel.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  bitrate Expected bitrate, e.g. Set bitrate=19200 if 19200bps is expected.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetLinBitrate(BM_ChannelHandle handle, uint16_t bitrate);
+BM_SetLinBitrate = bmapi_dll.BM_SetLinBitrate
+BM_SetLinBitrate.argtypes = [BM_ChannelHandle, ctypes.c_uint16]
+BM_SetLinBitrate.restype = BM_StatusTypeDef
+BM_SetLinBitrate.errcheck = check_status
+
+# /**
+#  * @brief      Set bitrate option of the given Ethernet channel.
+#  * @param[in]  handle  Handle to the channel to operate on.
+#  * @param[in]  bitrate Expected speed, e.g. Set bitrate=1000 if 1000Mbps(1Gbps) is expected.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetEthSpeed(BM_ChannelHandle handle, uint16_t bitrate);
+BM_SetEthSpeed = bmapi_dll.BM_SetEthSpeed
+BM_SetEthSpeed.argtypes = [BM_ChannelHandle, ctypes.c_uint16]
+BM_SetEthSpeed.restype = BM_StatusTypeDef
+BM_SetEthSpeed.errcheck = check_status
+
+# /**
+#  * @brief      Get TX tasks option of the given channel.
+#  * @param[in]  handle    Handle to the channel to operate on.
+#  * @param[out] txtasks   An array of TX task information, see BM_TxTaskTypeDef for details.
+#  * @param[in]  ntxtasks  Number of valid TX tasks in the txtasks array.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetTxTasks(BM_ChannelHandle handle, BM_TxTaskTypeDef* txtasks, int ntxtasks);
+BM_GetTxTasks = bmapi_dll.BM_GetTxTasks
+BM_GetTxTasks.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_TxTaskTypeDef), ctypes.c_int]
+BM_GetTxTasks.restype = BM_StatusTypeDef
+BM_GetTxTasks.errcheck = check_status
+
+# /**
+#  * @brief      Set Message Routes option of the given channel.
+#  * @param[in]  handle    Handle to the channel to operate on.
+#  * @param[in]  msgroutes An array of Message Routes information, see BM_MessageRouteTypeDef for details.
+#  * @param[in]  nmsgroute Number of valid Message Routes in the routes array.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_SetMsgRoutes(BM_ChannelHandle handle, BM_MessageRouteTypeDef* msgroutes, int nmsgroute);
+BM_SetMsgRoutes = bmapi_dll.BM_SetMsgRoutes
+BM_SetMsgRoutes.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_MessageRouteTypeDef), ctypes.c_int]
+BM_SetMsgRoutes.restype = BM_StatusTypeDef
+BM_SetMsgRoutes.errcheck = check_status
+
+# /**
+#  * @brief      Get Message Routes option of the given channel.
+#  * @param[in]  handle    Handle to the channel to operate on.
+#  * @param[out] msgroutes An array of Message Routes information, see BM_MessageRouteTypeDef for details.
+#  * @param[in]  nmsgroute Number of valid Message Routes in the routes array.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetMsgRoutes(BM_ChannelHandle handle, BM_MessageRouteTypeDef* msgroutes, int nmsgroute);
+BM_GetMsgRoutes = bmapi_dll.BM_GetMsgRoutes
+BM_GetMsgRoutes.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_MessageRouteTypeDef), ctypes.c_int]
+BM_GetMsgRoutes.restype = BM_StatusTypeDef
+BM_GetMsgRoutes.errcheck = check_status
+
+# /**
+#  * @brief      Get RX filters option of the given channel.
+#  * @param[in]  handle      Handle to the channel to operate on.
+#  * @param[out] rxfilters   An array of RX filter information, see BM_RxFilterTypeDef for details.
+#  * @param[in]  nrxfilters  Number of valid RX filters in the rxfilters array.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetRxFilters(BM_ChannelHandle handle, BM_RxFilterTypeDef* rxfilters, int nrxfilters);
+BM_GetRxFilters = bmapi_dll.BM_GetRxFilters
+BM_GetRxFilters.argtypes = [BM_ChannelHandle, ctypes.POINTER(BM_RxFilterTypeDef), ctypes.c_int]
+BM_GetRxFilters.restype = BM_StatusTypeDef
+BM_GetRxFilters.errcheck = check_status
+
+# /**
+#  * @brief      Open the specified remote device port.
+#  * @param[in]  ipv4  Remote IPV4, note this is the forwarding-target ip when creating a virtual remote-forwarding channel.
+#  * @param[in]  localinfo  Optional local server information for networking service, pass None if not required.
+#  * @return Handle to the opened CAN device channel, return NULL if failed to open the specified port.
+#  */
+# BMAPI BM_ChannelHandle BM_OpenRemote(uint8_t ipv4[4], const BM_ChannelInfoTypeDef* localinfo);
+BM_OpenRemote = bmapi_dll.BM_OpenRemote
+BM_OpenRemote.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(BM_ChannelInfoTypeDef)]
+BM_OpenRemote.restype = BM_ChannelHandle
+
+# /**
+#  * @brief      Query remote control-lock support and the current owner without claiming.
+#  * @param[in]  ipv4  The IPV4 unicast/broadcast address in which to find remote devices, in network byte order.
+#  * @param[in]  timeout_ms  Timeout for this request only, no lease effect.
+#  * @param[out] info  Remote session status and ownership information.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_QueryRemoteSession(const uint8_t ipv4[4], int timeout_ms, BM_RemoteSessionInfoTypeDef* info);
+BM_QueryRemoteSession = bmapi_dll.BM_QueryRemoteSession
+BM_QueryRemoteSession.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.c_int, ctypes.POINTER(BM_RemoteSessionInfoTypeDef)]
+BM_QueryRemoteSession.restype = BM_StatusTypeDef
+BM_QueryRemoteSession.errcheck = check_status
+
+# /**
+#  * @brief      Claim the remote control session and start automatic heartbeats.
+#  *             This never falls back to unlocked mode. The handle must be released via BM_ReleaseRemoteSession().
+#  * @param[out] session  The claimed remote session handle.
+#  * @param[in]  ipv4  The IPV4 address of the remote device, in network byte order.
+#  * @param[in]  config  Remote session configuration, see BM_RemoteSessionConfigTypeDef for details.
+#  * @param[out] info  Remote session status and ownership information.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_ClaimRemoteSession(BM_RemoteSessionHandle* session, const uint8_t ipv4[4], const BM_RemoteSessionConfigTypeDef* config, BM_RemoteSessionInfoTypeDef* info);
+BM_ClaimRemoteSession = bmapi_dll.BM_ClaimRemoteSession
+BM_ClaimRemoteSession.argtypes = [ctypes.POINTER(BM_RemoteSessionHandle), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(BM_RemoteSessionConfigTypeDef), ctypes.POINTER(BM_RemoteSessionInfoTypeDef)]
+BM_ClaimRemoteSession.restype = BM_StatusTypeDef
+BM_ClaimRemoteSession.errcheck = check_status
+
+# /**
+#  * @brief      Query live status for a claimed remote session.
+#  * @param[in]  session  The claimed remote session handle.
+#  * @param[out] info  Remote session status and ownership information.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_GetRemoteSessionInfo(BM_RemoteSessionHandle session, BM_RemoteSessionInfoTypeDef* info);
+BM_GetRemoteSessionInfo = bmapi_dll.BM_GetRemoteSessionInfo
+BM_GetRemoteSessionInfo.argtypes = [BM_RemoteSessionHandle, ctypes.POINTER(BM_RemoteSessionInfoTypeDef)]
+BM_GetRemoteSessionInfo.restype = BM_StatusTypeDef
+BM_GetRemoteSessionInfo.errcheck = check_status
+
+# /**
+#  * @brief      Release the remote control session and destroy the handle.
+#  *             BM_UnInit also performs best-effort release of outstanding handles.
+#  * @param[in]  session  The remote session handle to release.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_ReleaseRemoteSession(BM_RemoteSessionHandle session);
+BM_ReleaseRemoteSession = bmapi_dll.BM_ReleaseRemoteSession
+BM_ReleaseRemoteSession.argtypes = [BM_RemoteSessionHandle]
+BM_ReleaseRemoteSession.restype = BM_StatusTypeDef
+BM_ReleaseRemoteSession.errcheck = check_status
+
+# /**
+#  * @brief      Set background thread priority for performance-tuning purpose.
+#  * @param[in]  priority  A integer, which is, 0-15 on Windows, and 0-100 on Unix.
+#  */
+# BMAPI void BM_SetThreadPriority(uint32_t priority);
+BM_SetThreadPriority = bmapi_dll.BM_SetThreadPriority
+BM_SetThreadPriority.argtypes = [ctypes.c_uint32]
+BM_SetThreadPriority.restype = None
+
+
+# /**
+#  * @brief      Recover from CAN BUSOFF state.
+#  *             Gen2/Gen2.5 firmware 2.6.0.0+ and Gen3 firmware 3.1.0.0+ use
+#  *             firmware-side recovery. Gen2/Gen2.5 firmware below 2.6.0.0 and
+#  *             Gen3 firmware 3.0.x use loopback + dummy message recovery.
+#  * @param[in]  handle  Handle to the channel to recover.
+#  * @return     Operation status, see BM_StatusTypeDef for details.
+#  */
+# BMAPI BM_StatusTypeDef BM_RecoverBusOff(BM_ChannelHandle handle);
+BM_RecoverBusOff = bmapi_dll.BM_RecoverBusOff
+BM_RecoverBusOff.argtypes = [BM_ChannelHandle]
+BM_RecoverBusOff.restype = BM_StatusTypeDef
+BM_RecoverBusOff.errcheck = check_status
+
+# /** @enum additions synchronized with BMAPI 1.14.2.45. */
+BM_ERROR_CONFIG = 0x1000000                   #/**< Invalid configuration */
+BM_CAN_NON_ISO_MODE = 0x08                    #/**< OR-Bitmask: handle CAN and NON-ISO(Bosch) CANFD messages */
+BM_CAN_NON_AUTORETX_MODE = 0x10               #/**< OR-Bitmask: do not re-transmit failed messages */
+BM_CAN_NOACK_MODE = 0x20                      #/**< OR-Bitmask: ACK from remote ECU is not checked */
+BM_CAN_DISABLE_AUTO_BUSOFF_RECOVERY = 0x40    #/**< OR-Bitmask: disable automatic bus-off recovery, only manual BM_RecoverBusOff() triggers recovery */
+
 # END OF FILE

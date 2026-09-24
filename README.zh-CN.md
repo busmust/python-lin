@@ -23,7 +23,7 @@
 
 ### 1. 安装 BMAPI 运行时库
 
-从 [BMAPI SDK Releases](https://github.com/busmaster/bmapi-sdk/releases) 下载最新的 SDK，将运行时库复制到系统路径：
+从 [BMAPI SDK Releases](https://github.com/busmust/bmapi-sdk/releases) 下载最新的 SDK，将运行时库复制到系统路径：
 
 | 平台 | SDK 中的文件 | 安装方法 |
 |------|-------------|---------|
@@ -66,7 +66,11 @@ bus.shutdown()
 
 - Python 3.7+
 - BUSMUST LIN 硬件设备
-- BMAPI 运行时库（包含在 [BMAPI SDK](https://github.com/busmaster/bmapi-sdk/releases) 中）
+- BMAPI 运行时库（包含在 [BMAPI SDK](https://github.com/busmust/bmapi-sdk/releases) 中）
+
+本修订版将底层 `ctypes` 声明同步到完整的 BMAPI 1.14.2.45 接口。建议使用
+本 Release 附带、内含匹配 BMAPI 1.15.0.46 运行库的独立压缩包，或另行安装
+BMAPI 1.14.2.45 及以上版本。
 
 ## 例程
 
@@ -110,7 +114,7 @@ pyinstaller your_app.spec
 
 ## 相关项目
 
-- [BMAPI SDK](https://github.com/busmaster/bmapi-sdk) — BUSMUST 设备完整 SDK
+- [BMAPI SDK](https://github.com/busmust/bmapi-sdk) — BUSMUST 设备完整 SDK
 - [python-can](https://github.com/busmust/python-can) — BUSMUST 的 CAN/CAN FD 接口
 
 ## 技术支持
